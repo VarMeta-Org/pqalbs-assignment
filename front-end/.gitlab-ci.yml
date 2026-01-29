@@ -1,0 +1,45 @@
+stages:
+  - dockerize
+  - deploy
+
+# Dockerize template stage
+.dockerize_template: &dockerize
+  stage: dockerize
+  image: $KANIKO_RUNNER_IMAGE
+  tags:
+    - vm-docker
+  allow_failure: false
+  when: on_success
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - when: never
+
+# Deploy template
+.deploy_template: &deploy
+  stage: deploy
+  image: $RUNNER_IMAGE
+  script:
+    - sh ./scripts/deploy.sh
+  tags:
+    - vm-docker
+  allow_failure: false
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "dev"'
+    - when: never
+
+# Dockerize Web
+dockerize:web:
+  <<: *dockerize
+  script:
+    - sh ./scripts/dockerize.sh
+  variables:
+    REGISTRY: $REGISTRY_FE
+
+# Deploy stage
+update-manifest:web:
+  <<: *deploy
+  variables:
+    VALUE_FILE: $VALUE_FILE
+
+  needs:
+    - job: dockerize:web

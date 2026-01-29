@@ -1,0 +1,20 @@
+sequenceDiagram
+    participant User
+    participant Token as Token Contract (ERC20)
+    participant Lending as SimpleLending Contract
+
+    Note over User, Token: Step 1: User gives permission
+    User->>Token: approve(SimpleLending_Address, 1000)
+    Token-->>User: Transaction Confirmed (Allowance Set)
+
+    Note over User, Lending: Step 2: User performs action
+    User->>Lending: supply(1000)
+    
+    Note over Lending, Token: Step 3: Lending contract pulls tokens
+    Lending->>Token: transferFrom(User, Lending, 1000)
+    Token->>Token: Check Allowance >= 1000
+    Token->>Token: Transfer 1000 from User to Lending
+    Token->>Token: Decrease Allowance
+    Token-->>Lending: Returns True
+    
+    Lending-->>User: Supply Successful
