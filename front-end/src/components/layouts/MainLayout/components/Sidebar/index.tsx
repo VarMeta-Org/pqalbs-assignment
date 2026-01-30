@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Hexagon, X } from "lucide-react";
+import { Banknote, Hexagon, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -50,9 +50,6 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
 				{/* Header */}
 				<div className="flex items-center justify-between px-6 py-6 h-20">
 					<div className="flex items-center gap-3">
-						<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-blue-600 shadow-lg shadow-primary/20">
-							<Hexagon className="h-6 w-6 text-white fill-white/20" />
-						</div>
 						<div className="flex flex-col">
 							<span className="bg-gradient-to-r from-white to-white/60 bg-clip-text text-lg font-bold text-transparent">
 								Lending Protocol
