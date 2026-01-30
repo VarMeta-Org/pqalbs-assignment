@@ -230,14 +230,12 @@ export const TokenInteraction = () => {
 															</Badge>
 														)}
 													</div>
-													{isApproved && (
-														<span className="text-[10px] text-muted-foreground pl-1">
-															Allowance:{" "}
-															<span className="font-mono font-medium text-foreground">
-																{formattedAllowance}
-															</span>
+													<span className="text-[10px] text-muted-foreground pl-1">
+														Allowance:{" "}
+														<span className="font-mono font-medium text-foreground">
+															{formattedAllowance}
 														</span>
-													)}
+													</span>
 												</div>
 
 												<div className="flex gap-2">
