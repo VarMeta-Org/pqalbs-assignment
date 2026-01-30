@@ -7,6 +7,7 @@ export const env = {
 	USD8_TOKEN: process.env.NEXT_PUBLIC_USD8_TOKEN || "",
 	WETH_TOKEN: process.env.NEXT_PUBLIC_WETH_TOKEN || "",
 	USE_TESTNET: process.env.NEXT_PUBLIC_USE_TESTNET || "",
+	TOKEN_OWNER: process.env.NEXT_PUBLIC_TOKEN_OWNER || "",
 };
 
 export const EVM_CHAINS: [Chain, ...Chain[]] = env.USE_TESTNET

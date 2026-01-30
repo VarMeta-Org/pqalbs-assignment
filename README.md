@@ -1,101 +1,106 @@
-# Assignment SC
+# Simple Lending Protocol
 
-This repository contains the smart contracts and frontend for the Assignment SC project.
+A decentralized lending protocol built with Hardhat and Next.js, allowing users to supply assets to earn interest and borrow assets against their collateral.
 
-## Project Structure
+## 🌟 Features
 
-- `contracts/`: Solidity smart contracts
-- `front-end/`: Next.js frontend application
-- `ignition/`: Hardhat Ignition deployment modules
-- `scripts/`: Utility scripts (e.g., ABI copying)
+- **Supply & Withdraw**: supply assets to the liquidity pool and withdraw them at any time.
+- **Borrow & Repay**: Borrow assets against your supplied collateral (LTV: 75%).
+- **Real-time Rates**: dynamic supply and borrow APY based on pool utilization.
+- **Health Factor**: Monitor position health to avoid liquidation (Threshold: 80%).
 
-## Setup Instructions
+## 🛠 Tech Stack
 
-### Prerequisites
+- **Smart Contracts**: Solidity, Hardhat, Hardhat Ignition
+- **Frontend**: Next.js 16, TypeScript, TailwindCSS, Viem/Wagmi
+- **Testing**: Hardhat Network, Chai
 
-- Node.js (v18+ recommended)
-- pnpm
-- MetaMask or compatible wallet
+## 📋 Prerequisites
 
-### 1. Installation
+- **Node.js**: >= 18.x
+- **pnpm**: >= 9.x
+- **Git**
 
-Install dependencies for both the root project (contracts) and frontend:
+## 🚀 Setup & Installation
 
-```bash
-# Root dependencies
-pnpm install
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd assignment-sc
+   ```
 
-# Frontend dependencies
-cd front-end
-pnpm install
-```
+2. **Install dependencies**
+   
+   Root dependencies (Hardhat & Scripts):
+   ```bash
+   pnpm install
+   ```
 
-### 2. Running Local Blockchain
+   Frontend dependencies:
+   ```bash
+   cd front-end
+   pnpm install
+   cd ..
+   ```
 
-Start a local Hardhat node:
+3. **Environment Setup**
 
-```bash
-pnpm node
-```
+   Create a `.env` file in the root directory:
+   ```bash
+   cp .env.example .env
+   ```
+   
+   Create a `.env.local` file in the `front-end` directory:
+   ```bash
+   cd front-end
+   cp .env.example .env.local
+   cd ..
+   ```
 
-### 3. Deploying Contracts
+## 💻 Running Locally
 
-**Deploy to Localhost:**
+You can run the entire stack locally with the following steps:
 
-In a new terminal window, deploy the contracts to your local node:
+1. **Start the local Hardhat node**
+   ```bash
+   pnpm node
+   ```
 
-```bash
-pnpm deploy:local
-```
+2. **Deploy contracts to local network**
+   Open a new terminal and run:
+   ```bash
+   pnpm deploy:local
+   ```
+   This will run the `DeployAll` module, deploying `USD8`, `WETH`, and `SimpleLending` contracts. Creates a `deployments` folder in `front-end` (if valid) or you might need to update addresses manually if the script doesn't auto-update.
 
-This will deploy `USD8Token`, `WETHToken`, and `SimpleLending` contracts. Note the deployed addresses from the output.
+   *Note: There is a helper script `pnpm update-front-end` to copy ABIs, but for local testing, ensure `front-end/.env.local` points to the locally deployed addresses printed in the console.*
 
-**Deploy to Sepolia Testnet:**
+3. **Start the Frontend**
+   ```bash
+   pnpm dev:fe
+   ```
+   Open [http://localhost:3000](http://localhost:3000) to view the app.
 
-Ensure you have a `.env` file configured with `PRIVATE_KEY` and `SEPOLIA_RPC_URL` (see `.env.example`).
+   *Note: Ensure your wallet (Metamask/Rabby) is connected to the 'Hardhat Local' network (Chain ID: 31337).*
 
-```bash
-pnpm deploy:sepolia
-```
+## 🌐 Testnet Deployment (Sepolia)
 
-### 4. Update Frontend ABIs
+### Current Deployed Addresses
+The application is currently configured (in `front-end/.env`) for the **Sepolia** testnet:
 
-After deployment, copy the latest ABIs to the frontend:
+| Contract | Address |
+|----------|---------|
+| **SimpleLending** | `0x5D1bdBFCF23f048Ca5571675FE2aC5c230a87794` |
+| **USD8 Token** | `0x4ed7716c8E3E8605f221F25672F54ab1F31e496D` |
+| **WETH Token** | `0x1d1343FD09C4341f79Ab5dB99157C122eA4cB71C` |
 
-```bash
-pnpm update-front-end
-```
+### Deploying to Sepolia
+To deploy your own instances:
 
-### 5. Start Frontend
-
-Navigate to the frontend directory and start the development server:
-
-```bash
-cd front-end
-pnpm dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
-
-## Contract Addresses
-
-### Localhost (Chain ID: 31337)
-
-These are the default addresses from the latest local deployment:
-
-- **USD8Token**: `0x5FbDB2315678afecb367f032d93F642f64180aa3`
-- **WETHToken**: `0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512`
-- **SimpleLending**: `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0`
-
-### Sepolia Testnet
-
-*Run `pnpm deploy:sepolia` to deploy and generate new addresses.*
-
-## Assumptions & Technical Decisions
-
-1.  **Monorepo-like Structure**: The project houses both smart contracts (root) and frontend (`front-end`) in a single repository for easier coordination during development.
-2.  **Hardhat Ignition**: Used for declarative deployment management, allowing for reproducible deployments across local and testnet environments.
-3.  **Frontend ABI Sync**: A custom script (`scripts/copy-abis.ts`) is used to bridge the artifacts generated by Hardhat to the frontend application, ensuring type safety and ABI freshness.
-4.  **Local Development First**: The setup prioritizes a smooth local development loop using Hardhat Node and localhost deployment.
-5.  **Testnet Configuration**: Sepolia is the chosen testnet, expecting environment variables for configuration (`PRIVATE_KEY`, etc.).
-6.  **Mock Tokens**: `USD8Token` and `WETHToken` are deployed as mock ERC20 tokens to facilitate lending protocol testing without relying on external faucets.
+1. Ensure your root `.env` has `SEPOLIA_RPC_URL` and `PRIVATE_KEY` set.
+2. Run the deployment command:
+   ```bash
+   npx hardhat run scripts/deploy-test-tokens.ts --network sepolia
+   TEST_TOKEN_ADDRESS=0x0 npx hardhat run scripts/deploy-simple-lending.ts --network sepolia
+   ```
+3. Update `front-end/.env` or `.env.local` with the new contract addresses.

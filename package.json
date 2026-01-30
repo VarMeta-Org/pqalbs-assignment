@@ -15,7 +15,12 @@
 		"update-front-end": "ts-node scripts/copy-abis.ts",
 		"install:fe": "cd front-end && pnpm install",
 		"dev:fe": "cd front-end && pnpm dev",
-		"build:fe": "cd front-end && pnpm build"
+		"build:fe": "cd front-end && pnpm build",
+		"deploy:script:token": "hardhat run scripts/deploy-test-tokens.ts",
+		"deploy:script:lending": "hardhat run scripts/deploy-simple-lending.ts",
+		"deploy:script:sepolia:token": "hardhat run scripts/deploy-test-tokens.ts --network sepolia",
+		"deploy:script:sepolia:lending": "hardhat run scripts/deploy-simple-lending.ts --network sepolia",
+		"mint:script": "hardhat run scripts/mint-tokens.ts"
 	},
 	"keywords": [],
 	"author": "",
@@ -43,6 +48,7 @@
 		"typescript": ">=4.5.0"
 	},
 	"dependencies": {
+		"bn.js": "^5.2.2",
 		"dotenv": "^17.2.3"
 	}
 }

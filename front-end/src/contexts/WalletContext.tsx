@@ -1,6 +1,5 @@
 "use client";
 
-import MetaMaskSDK from "@metamask/sdk";
 import {
 	BrowserProvider,
 	type Eip1193Provider,
@@ -15,8 +14,9 @@ import {
 	useState,
 } from "react";
 import { toast } from "sonner";
-import { EVM_CHAINS, env, TARGET_CHAIN } from "@/lib/const";
+import { EVM_CHAINS, TARGET_CHAIN } from "@/lib/const";
 import { BMSDK } from "@/lib/metamask-sdk";
+import { parseContractError } from "@/utils/common";
 
 interface EthereumEvents {
 	connect: (info: { chainId: string }) => void;
@@ -206,10 +206,12 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 						},
 					]);
 				} catch (addError: any) {
-					toast.error(addError.message || "Failed to add network");
+					toast.error(parseContractError(addError) || "Failed to add network");
 				}
 			} else {
-				toast.error(switchError.message || "Failed to switch network");
+				toast.error(
+					parseContractError(switchError) || "Failed to switch network",
+				);
 			}
 		}
 	};
@@ -227,9 +229,10 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 				return undefined;
 			}
 
-			// If we need to force the SDK to show the modal (if extension not found), requestAccounts does that.
+			// This allows users to re-select their account on each connect
 			await ethereum.request({
-				method: "eth_requestAccounts",
+				method: "wallet_requestPermissions",
+				params: [{ eth_accounts: {} }],
 			});
 
 			// Update state using ethers
@@ -246,15 +249,53 @@ export const WalletProvider = ({ children }: { children: ReactNode }) => {
 			setIsConnected(true);
 			localStorage.setItem(WALLET_CONNECTED_KEY, "true");
 
-			// Auto switch to Target network
+			// Auto switch to Target network (inline to avoid race condition with provider state)
 			if (Number(_network.chainId) !== TARGET_CHAIN.id) {
-				await switchNetwork(TARGET_CHAIN.id);
+				const chainConfig = EVM_CHAINS.find((c) => c.id === TARGET_CHAIN.id);
+				const hexChainId = `0x${TARGET_CHAIN.id.toString(16)}`;
+
+				try {
+					await _provider.send("wallet_switchEthereumChain", [
+						{ chainId: hexChainId },
+					]);
+				} catch (switchError: any) {
+					// 4902 indicates the chain has not been added to MetaMask
+					if (
+						switchError.code === 4902 ||
+						switchError?.data?.originalError?.code === 4902 ||
+						switchError.message?.includes("Unrecognized chain ID")
+					) {
+						if (chainConfig) {
+							try {
+								await _provider.send("wallet_addEthereumChain", [
+									{
+										chainId: hexChainId,
+										chainName: chainConfig.name,
+										nativeCurrency: chainConfig.nativeCurrency,
+										rpcUrls: chainConfig.rpcUrls.default.http,
+										blockExplorerUrls: chainConfig.blockExplorers
+											? [chainConfig.blockExplorers.default.url]
+											: [],
+									},
+								]);
+							} catch (addError: any) {
+								toast.error(
+									parseContractError(addError) || "Failed to add network",
+								);
+							}
+						}
+					} else {
+						toast.error(
+							parseContractError(switchError) || "Failed to switch network",
+						);
+					}
+				}
 			}
 
 			return _address;
 		} catch (error: any) {
 			console.error("Connection error:", error);
-			toast.error(error.message || "Failed to connect wallet");
+			toast.error(parseContractError(error) || "Failed to connect wallet");
 			return undefined;
 		}
 	};

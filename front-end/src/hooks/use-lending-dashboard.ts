@@ -1,8 +1,8 @@
 import { useCallback } from "react";
-import { TestTokenABI } from "@/abis/TestToken";
 import { useWallet } from "@/contexts/WalletContext";
 import { env } from "@/lib/const";
-import { useContractRead } from "./use-contract-read";
+import { useLendingRead } from "./use-lending-read";
+import { useTokenRead } from "./use-token-read";
 
 export interface PoolInfo {
 	totalSupply: bigint;
@@ -23,49 +23,79 @@ export const useLendingDashboard = () => {
 	const { address } = useWallet();
 
 	// Read Pool Info
-	const { data: rawPoolInfo, refetch: refetchPoolInfo } = useContractRead({
+	const {
+		data: rawPoolInfo,
+		refetch: refetchPoolInfo,
+		isLoading: isPoolInfoLoading,
+	} = useLendingRead({
 		functionName: "getPoolInfo",
 		refetchInterval: 10000, // Refetch every 10s
 	});
 
 	// Read User Position
-	const { data: rawUserPosition, refetch: refetchUserPosition } =
-		useContractRead({
-			functionName: "getUserPosition",
-			args: address ? [address] : undefined,
-			enabled: !!address,
-			refetchInterval: 10000,
-		});
+	const {
+		data: rawUserPosition,
+		refetch: refetchUserPosition,
+		isLoading: isUserPositionLoading,
+	} = useLendingRead({
+		functionName: "getUserPosition",
+		args: address ? [address] : undefined,
+		enabled: !!address,
+		refetchInterval: 10000,
+	});
 
 	// Read Max Withdraw (only for UI display, actual check in tx)
-	const { data: maxWithdraw, refetch: refetchMaxWithdraw } = useContractRead({
+	const {
+		data: maxWithdraw,
+		refetch: refetchMaxWithdraw,
+		isLoading: isMaxWithdrawLoading,
+	} = useLendingRead({
 		functionName: "calculateMaxWithdraw",
 		args: address ? [address] : undefined,
 		enabled: !!address,
 	});
 
 	// Read Max Borrow (only for UI display, actual check in tx)
-	const { data: maxBorrow, refetch: refetchMaxBorrow } = useContractRead({
+	const {
+		data: maxBorrow,
+		refetch: refetchMaxBorrow,
+		isLoading: isMaxBorrowLoading,
+	} = useLendingRead({
 		functionName: "calculateMaxBorrow",
 		args: address ? [address] : undefined,
 		enabled: !!address,
 	});
 
-	// Read USD8 Token Balance
-	const { data: tokenBalance, refetch: refetchTokenBalance } = useContractRead({
+	const { data: tokenAddress, isLoading: isTokenAddressLoading } =
+		useLendingRead({
+			functionName: "token",
+		});
+
+	const { data: tokenSymbol, isLoading: isTokenSymbolLoading } = useTokenRead({
+		functionName: "symbol",
+		tokenAddress: tokenAddress || "",
+		enabled: !!tokenAddress,
+	});
+
+	const {
+		data: tokenBalance,
+		refetch: refetchTokenBalance,
+		isLoading: isTokenBalanceLoading,
+	} = useTokenRead({
 		functionName: "balanceOf",
 		args: address ? [address] : undefined,
-		address: env.USD8_TOKEN,
-		abi: TestTokenABI,
+		tokenAddress: tokenAddress || "",
 		enabled: !!address,
 	});
 
-	// Read USD8 Allowance
-	const { data: tokenAllowance, refetch: refetchAllowance } = useContractRead({
+	const {
+		data: tokenAllowance,
+		refetch: refetchAllowance,
+		isLoading: isTokenAllowanceLoading,
+	} = useTokenRead({
 		functionName: "allowance",
 		args: address ? [address, env.SIMPLE_LENDING_CONTRACT] : undefined,
-		address: env.USD8_TOKEN,
-		abi: TestTokenABI,
+		tokenAddress: tokenAddress || "",
 		enabled: !!address,
 	});
 
@@ -113,6 +143,15 @@ export const useLendingDashboard = () => {
 		maxBorrow: maxBorrow as bigint | undefined,
 		tokenBalance: tokenBalance as bigint | undefined,
 		tokenAllowance: tokenAllowance as bigint | undefined,
+		tokenSymbol,
 		refetchAll,
+		isPoolInfoLoading,
+		isUserPositionLoading,
+		isMaxWithdrawLoading,
+		isMaxBorrowLoading,
+		isTokenAddressLoading,
+		isTokenSymbolLoading,
+		isTokenBalanceLoading,
+		isTokenAllowanceLoading,
 	};
 };

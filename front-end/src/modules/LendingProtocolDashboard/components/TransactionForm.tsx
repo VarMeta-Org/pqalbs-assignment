@@ -1,22 +1,26 @@
 import { formatEther, parseUnits } from "ethers";
 import { CheckCircle2, Circle, Loader2 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { UserPosition } from "@/hooks/useLendingDashboard";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import type { UserPosition } from "@/hooks/use-lending-dashboard";
 import {
 	type TransactionStep,
 	useLendingTransaction,
-} from "@/hooks/useLendingTransaction";
+} from "@/hooks/use-lending-transaction";
 
 interface TransactionFormProps {
 	tokenBalance?: bigint;
+	tokenAllowance?: bigint;
 	maxWithdraw?: bigint;
 	maxBorrow?: bigint;
 	userPosition: UserPosition | null;
+	tokenSymbol?: string;
 	refetchAll: () => void;
+	isLoading?: boolean;
 }
 
 const ACTION_DESCRIPTIONS: Record<
@@ -135,16 +139,91 @@ const StepIndicator = ({
 
 export const TransactionForm = ({
 	tokenBalance,
+	tokenAllowance,
 	maxWithdraw,
 	maxBorrow,
 	userPosition,
+	tokenSymbol,
 	refetchAll,
+	isLoading,
 }: TransactionFormProps) => {
-	const { supply, withdraw, borrow, repay, isLoading, txStep, resetTxState } =
-		useLendingTransaction(refetchAll);
+	const {
+		approve,
+		supply,
+		withdraw,
+		borrow,
+		repay,
+		isLoading: isTxLoading,
+		txStep,
+		resetTxState,
+	} = useLendingTransaction(refetchAll);
 
 	const [amount, setAmount] = useState("");
 	const [activeTab, setActiveTab] = useState("supply");
+	const [validationError, setValidationError] = useState<string | null>(null);
+
+	// Clear validation error when tab changes
+	// biome-ignore lint/correctness/useExhaustiveDependencies: <explanation>
+	useEffect(() => {
+		setValidationError(null);
+	}, [activeTab]);
+
+	const validateAmount = (value: string) => {
+		if (!value || value === "0") {
+			setValidationError(null);
+			return;
+		}
+
+		try {
+			const parsedAmount = parseUnits(value, 18);
+			if (parsedAmount <= BigInt(0)) {
+				setValidationError("Amount must be greater than 0");
+				return;
+			}
+
+			let maxLimit = BigInt(0);
+			let errorMsg = "";
+
+			switch (activeTab) {
+				case "supply":
+					maxLimit = tokenBalance || BigInt(0);
+					errorMsg = "Amount exceeds wallet balance";
+					break;
+				case "withdraw":
+					maxLimit = maxWithdraw || BigInt(0);
+					errorMsg = "Amount exceeds max withdrawable limit";
+					break;
+				case "borrow":
+					maxLimit = maxBorrow || BigInt(0);
+					errorMsg = "Amount exceeds max borrowable limit";
+					break;
+				case "repay": {
+					const debt = userPosition?.borrowed || BigInt(0);
+					const balance = tokenBalance || BigInt(0);
+					// Check against debt
+					if (parsedAmount > debt) {
+						setValidationError("Amount exceeds borrowed balance");
+						return;
+					}
+					// Check against wallet balance
+					if (parsedAmount > balance) {
+						setValidationError("Amount exceeds wallet balance");
+						return;
+					}
+					setValidationError(null);
+					return;
+				}
+			}
+
+			if (parsedAmount > maxLimit) {
+				setValidationError(errorMsg);
+			} else {
+				setValidationError(null);
+			}
+		} catch {
+			setValidationError("Invalid amount");
+		}
+	};
 
 	const formatValue = (value?: bigint) => {
 		if (value === undefined) return "0.00";
@@ -166,42 +245,78 @@ export const TransactionForm = ({
 			const balance = tokenBalance || BigInt(0);
 			const maxRepay = debt < balance ? debt : balance;
 			setAmount(formatEther(maxRepay));
+			setValidationError(null); // Max amount is always valid by definition logic
+		}
+		// Clear validation error for other tabs as setting max is valid
+		if (activeTab !== "repay") {
+			setValidationError(null);
 		}
 	};
+
+	const isApprovalNeeded = useMemo(() => {
+		if (activeTab !== "supply" && activeTab !== "repay") return false;
+		if (!amount) return false;
+		if (!tokenAllowance) return true;
+		try {
+			const parsed = parseUnits(amount, 18);
+			return parsed > tokenAllowance;
+		} catch {
+			return false;
+		}
+	}, [activeTab, amount, tokenAllowance]);
 
 	const handleSubmit = async (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!amount) return;
 
 		try {
-			switch (activeTab) {
-				case "supply":
-					await supply(amount);
-					break;
-				case "withdraw":
-					await withdraw(amount);
-					break;
-				case "borrow":
-					await borrow(amount);
-					break;
-				case "repay":
-					await repay(amount);
-					break;
+			if (isApprovalNeeded) {
+				await approve(amount);
+			} else {
+				switch (activeTab) {
+					case "supply":
+						await supply(amount);
+						break;
+					case "withdraw":
+						await withdraw(amount);
+						break;
+					case "borrow":
+						await borrow(amount);
+						break;
+					case "repay":
+						await repay(amount);
+						break;
+				}
+				setAmount("");
 			}
-			setAmount("");
 		} catch (error) {
 			console.error("Transaction Error", error);
 		}
 	};
 
 	const isValidAmount = () => {
-		if (!amount) return false;
+		if (!amount || validationError) return false;
 		try {
 			const val = parseUnits(amount, 18);
-			if (val <= BigInt(0)) return false;
-			return true;
+			return val > BigInt(0);
 		} catch {
 			return false;
+		}
+	};
+
+	const getMaxAmount = () => {
+		switch (activeTab) {
+			case "supply":
+				return tokenBalance || BigInt(0);
+			case "withdraw":
+				return maxWithdraw || BigInt(0);
+			case "borrow":
+				return maxBorrow || BigInt(0);
+			case "repay": {
+				const debt = userPosition?.borrowed || BigInt(0);
+				const balance = tokenBalance || BigInt(0);
+				return debt < balance ? debt : balance;
+			}
 		}
 	};
 
@@ -230,10 +345,8 @@ export const TransactionForm = ({
 					</TabsList>
 
 					{/* Action Description */}
-					<div className="mt-4 rounded-lg bg-muted/50 p-3">
-						<p className="text-sm text-muted-foreground">
-							{currentAction.description}
-						</p>
+					<div className="mt-4 bg-info/20 p-3">
+						<p className="text-sm text-info">{currentAction.description}</p>
 					</div>
 
 					{/* Step Progress Indicator */}
@@ -242,20 +355,21 @@ export const TransactionForm = ({
 					<form onSubmit={handleSubmit} className="mt-4 space-y-4">
 						<div className="space-y-2">
 							<div className="flex justify-between text-xs">
-								<span className="text-muted-foreground">Amount (USD8)</span>
+								<span className="text-muted-foreground">
+									Amount ({tokenSymbol})
+								</span>
 								<button
 									type="button"
 									onClick={handleSetMax}
-									className="text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-0.5 rounded cursor-pointer"
+									disabled={isLoading}
+									className="text-xs font-medium text-primary hover:text-primary/80 transition-colors bg-primary/10 px-2 py-0.5 cursor-pointer flex items-center gap-1 disabled:opacity-50"
 								>
 									Max:{" "}
-									{activeTab === "supply"
-										? formatValue(tokenBalance)
-										: activeTab === "withdraw"
-											? formatValue(maxWithdraw)
-											: activeTab === "borrow"
-												? formatValue(maxBorrow)
-												: formatValue(userPosition?.borrowed)}
+									{isLoading ? (
+										<Skeleton className="h-3 w-12" />
+									) : (
+										formatValue(getMaxAmount())
+									)}
 								</button>
 							</div>
 							<Input
@@ -266,22 +380,37 @@ export const TransactionForm = ({
 									const value = e.target.value;
 									if (value === "" || /^\d*\.?\d*$/.test(value)) {
 										setAmount(value);
+										validateAmount(value);
 									}
 								}}
-								disabled={isLoading}
+								disabled={isTxLoading}
+								className={
+									validationError
+										? "border-red-500 focus-visible:ring-red-500"
+										: ""
+								}
 							/>
+							{validationError && (
+								<p className="text-xs text-red-500 mt-1">{validationError}</p>
+							)}
 						</div>
 
 						<Button
 							type="submit"
-							className="w-full"
-							disabled={isLoading || !isValidAmount()}
+							className={`w-full ${
+								isApprovalNeeded
+									? "bg-amber-600 hover:bg-amber-700 text-white"
+									: ""
+							}`}
+							disabled={isTxLoading || !isValidAmount()}
 						>
-							{isLoading ? (
+							{isTxLoading ? (
 								<>
 									<Loader2 className="mr-2 h-4 w-4 animate-spin" />
 									Processing...
 								</>
+							) : isApprovalNeeded ? (
+								`Approve ${tokenSymbol}`
 							) : (
 								currentAction.title
 							)}
