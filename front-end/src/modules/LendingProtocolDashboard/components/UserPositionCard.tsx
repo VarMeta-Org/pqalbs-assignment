@@ -1,4 +1,4 @@
-import { formatEther } from "ethers";
+import BN from "bn.js";
 import {
 	Activity,
 	ArrowDownCircle,
@@ -17,11 +17,12 @@ import {
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { UserPosition } from "@/hooks/use-lending-dashboard";
+import { formatBN } from "@/utils/common";
 
 interface UserPositionCardProps {
 	userPosition: UserPosition | null;
-	maxBorrow?: bigint;
-	tokenBalance?: bigint;
+	maxBorrow?: BN;
+	tokenBalance?: BN;
 	tokenSymbol?: string;
 	isLoading?: boolean;
 }
@@ -33,19 +34,22 @@ export const UserPositionCard = ({
 	tokenSymbol,
 	isLoading,
 }: UserPositionCardProps) => {
-	const formatValue = (value?: bigint) => {
-		if (value === undefined) return "0.00";
-		return parseFloat(formatEther(value)).toLocaleString(undefined, {
+	const formatValue = (value?: BN) => {
+		if (!value) return "0.00";
+		const formatted = formatBN(value, 18, 4);
+		return parseFloat(formatted).toLocaleString(undefined, {
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2,
 		});
 	};
 
-	const getHealthFactorStatus = (hf?: bigint) => {
+	const getHealthFactorStatus = (hf?: BN) => {
 		if (!hf) return { color: "text-muted-foreground", label: "No Position" };
-		const value = Number(hf) / 100;
-		if (hf > BigInt(10000))
+
+		if (hf.gt(new BN(10000)))
 			return { color: "text-green-500", label: "Excellent" };
+
+		const value = hf.toNumber() / 100;
 		if (value < 1.2) return { color: "text-red-500", label: "Risk" };
 		if (value < 1.5) return { color: "text-yellow-500", label: "Warning" };
 		return { color: "text-green-500", label: "Healthy" };
@@ -122,7 +126,7 @@ export const UserPositionCard = ({
 							{isLoading ? (
 								<Skeleton className="h-5 w-16" />
 							) : userPosition?.healthFactor &&
-								userPosition.healthFactor > BigInt(10000) ? (
+								userPosition.healthFactor.gt(new BN(10000)) ? (
 								"∞"
 							) : (
 								`${Number(userPosition?.healthFactor || 0)}%`
@@ -133,7 +137,9 @@ export const UserPositionCard = ({
 						<Progress
 							value={Math.min(
 								100,
-								(Number(userPosition.healthFactor) / 300) * 100,
+								userPosition.healthFactor.gt(new BN(10000))
+									? 100
+									: (userPosition.healthFactor.toNumber() / 300) * 100,
 							)}
 							className="h-2 bg-background/50"
 							// indicatorClassName={hfStatus.color.replace("text-", "bg-")} // Note: You might need to adjust Progress component to accept indicatorClassName or just rely on CSS

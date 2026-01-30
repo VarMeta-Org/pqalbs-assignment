@@ -30,7 +30,7 @@ const nextConfig = {
 	reactStrictMode: false,
 	output: "standalone",
 	turbopack: {
-		// root: process.cwd(),
+		root: process.env.IS_LOCAL === "true" ? process.cwd() : undefined,
 		rules: {
 			"*.svg": {
 				loaders: ["@svgr/webpack"],

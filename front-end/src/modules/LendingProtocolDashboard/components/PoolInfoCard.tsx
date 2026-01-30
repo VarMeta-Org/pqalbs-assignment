@@ -1,4 +1,4 @@
-import { formatEther } from "ethers";
+import type BN from "bn.js";
 import { Info, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +9,7 @@ import {
 	TooltipTrigger,
 } from "@/components/ui/tooltip";
 import type { PoolInfo, UserPosition } from "@/hooks/use-lending-dashboard";
+import { formatBN, ZERO_BN } from "@/utils/common";
 
 interface PoolInfoCardProps {
 	poolInfo: PoolInfo | null;
@@ -22,16 +23,17 @@ export const PoolInfoCard = ({
 	tokenSymbol,
 	isLoading = false,
 }: PoolInfoCardProps) => {
-	const formatValue = (value?: bigint) => {
-		if (value === undefined) return "0.00";
-		return parseFloat(formatEther(value)).toLocaleString(undefined, {
+	const formatValue = (value?: BN) => {
+		if (!value) return "0.00";
+		const formatted = formatBN(value, 18, 4);
+		return parseFloat(formatted).toLocaleString(undefined, {
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2,
 		});
 	};
 
-	const formatPercentage = (value?: bigint) => {
-		if (value === undefined) return "0.00%";
+	const formatPercentage = (value?: BN) => {
+		if (!value) return "0.00%";
 		return `${value.toString()}%`;
 	};
 
@@ -152,8 +154,9 @@ export const PoolInfoCard = ({
 								<Skeleton className="h-8 w-32" />
 							) : (
 								`${formatValue(
-									(poolInfo?.totalSupply ?? BigInt(0)) -
-										(poolInfo?.totalBorrow ?? BigInt(0)),
+									(poolInfo?.totalSupply ?? ZERO_BN).sub(
+										poolInfo?.totalBorrow ?? ZERO_BN,
+									),
 								)} ${tokenSymbol}`
 							)}
 						</div>

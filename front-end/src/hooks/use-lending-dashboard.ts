@@ -1,22 +1,24 @@
+import type BN from "bn.js";
 import { useCallback } from "react";
 import { useWallet } from "@/contexts/WalletContext";
 import { env } from "@/lib/const";
+import { toBN } from "@/utils/common";
 import { useLendingRead } from "./use-lending-read";
 import { useTokenRead } from "./use-token-read";
 
 export interface PoolInfo {
-	totalSupply: bigint;
-	totalBorrow: bigint;
-	utilizationRate: bigint;
-	supplyRate: bigint;
-	borrowRate: bigint;
+	totalSupply: BN;
+	totalBorrow: BN;
+	utilizationRate: BN;
+	supplyRate: BN;
+	borrowRate: BN;
 }
 
 export interface UserPosition {
-	supplied: bigint;
-	borrowed: bigint;
-	collateralValue: bigint;
-	healthFactor: bigint;
+	supplied: BN;
+	borrowed: BN;
+	collateralValue: BN;
+	healthFactor: BN;
 }
 
 export const useLendingDashboard = () => {
@@ -118,31 +120,31 @@ export const useLendingDashboard = () => {
 	// Parse Pool Info
 	const poolInfo: PoolInfo | null = rawPoolInfo
 		? {
-				totalSupply: rawPoolInfo[0],
-				totalBorrow: rawPoolInfo[1],
-				utilizationRate: rawPoolInfo[2],
-				supplyRate: rawPoolInfo[3],
-				borrowRate: rawPoolInfo[4],
+				totalSupply: toBN(rawPoolInfo[0]),
+				totalBorrow: toBN(rawPoolInfo[1]),
+				utilizationRate: toBN(rawPoolInfo[2]),
+				supplyRate: toBN(rawPoolInfo[3]),
+				borrowRate: toBN(rawPoolInfo[4]),
 			}
 		: null;
 
 	// Parse User Position
 	const userPosition: UserPosition | null = rawUserPosition
 		? {
-				supplied: rawUserPosition[0],
-				borrowed: rawUserPosition[1],
-				collateralValue: rawUserPosition[2],
-				healthFactor: rawUserPosition[3],
+				supplied: toBN(rawUserPosition[0]),
+				borrowed: toBN(rawUserPosition[1]),
+				collateralValue: toBN(rawUserPosition[2]),
+				healthFactor: toBN(rawUserPosition[3]),
 			}
 		: null;
 
 	return {
 		poolInfo,
 		userPosition,
-		maxWithdraw: maxWithdraw as bigint | undefined,
-		maxBorrow: maxBorrow as bigint | undefined,
-		tokenBalance: tokenBalance as bigint | undefined,
-		tokenAllowance: tokenAllowance as bigint | undefined,
+		maxWithdraw: maxWithdraw ? toBN(maxWithdraw as bigint) : undefined,
+		maxBorrow: maxBorrow ? toBN(maxBorrow as bigint) : undefined,
+		tokenBalance: tokenBalance ? toBN(tokenBalance as bigint) : undefined,
+		tokenAllowance: tokenAllowance ? toBN(tokenAllowance as bigint) : undefined,
 		tokenSymbol,
 		refetchAll,
 		isPoolInfoLoading,

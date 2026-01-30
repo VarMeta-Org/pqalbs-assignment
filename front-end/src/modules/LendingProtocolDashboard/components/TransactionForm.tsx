@@ -1,4 +1,5 @@
-import { formatEther, parseUnits } from "ethers";
+import BN from "bn.js";
+import { parseUnits } from "ethers";
 import { CheckCircle2, Circle, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -11,12 +12,13 @@ import {
 	type TransactionStep,
 	useLendingTransaction,
 } from "@/hooks/use-lending-transaction";
+import { formatBN, ZERO_BN } from "@/utils/common";
 
 interface TransactionFormProps {
-	tokenBalance?: bigint;
-	tokenAllowance?: bigint;
-	maxWithdraw?: bigint;
-	maxBorrow?: bigint;
+	tokenBalance?: BN;
+	tokenAllowance?: BN;
+	maxWithdraw?: BN;
+	maxBorrow?: BN;
 	userPosition: UserPosition | null;
 	tokenSymbol?: string;
 	refetchAll: () => void;
@@ -175,38 +177,43 @@ export const TransactionForm = ({
 		}
 
 		try {
-			const parsedAmount = parseUnits(value, 18);
-			if (parsedAmount <= BigInt(0)) {
+			// BN does not support decimals in constructor.
+			// Format: "1.234" -> 1.234 * 10^18
+			// Ethers parseUnits returns bigint. Convert to BN.
+			const parsedBigInt = parseUnits(value, 18);
+			const parsedAmount = new BN(parsedBigInt.toString());
+
+			if (parsedAmount.lte(ZERO_BN)) {
 				setValidationError("Amount must be greater than 0");
 				return;
 			}
 
-			let maxLimit = BigInt(0);
+			let maxLimit = ZERO_BN;
 			let errorMsg = "";
 
 			switch (activeTab) {
 				case "supply":
-					maxLimit = tokenBalance || BigInt(0);
+					maxLimit = tokenBalance || ZERO_BN;
 					errorMsg = "Amount exceeds wallet balance";
 					break;
 				case "withdraw":
-					maxLimit = maxWithdraw || BigInt(0);
+					maxLimit = maxWithdraw || ZERO_BN;
 					errorMsg = "Amount exceeds max withdrawable limit";
 					break;
 				case "borrow":
-					maxLimit = maxBorrow || BigInt(0);
+					maxLimit = maxBorrow || ZERO_BN;
 					errorMsg = "Amount exceeds max borrowable limit";
 					break;
 				case "repay": {
-					const debt = userPosition?.borrowed || BigInt(0);
-					const balance = tokenBalance || BigInt(0);
+					const debt = userPosition?.borrowed || ZERO_BN;
+					const balance = tokenBalance || ZERO_BN;
 					// Check against debt
-					if (parsedAmount > debt) {
+					if (parsedAmount.gt(debt)) {
 						setValidationError("Amount exceeds borrowed balance");
 						return;
 					}
 					// Check against wallet balance
-					if (parsedAmount > balance) {
+					if (parsedAmount.gt(balance)) {
 						setValidationError("Amount exceeds wallet balance");
 						return;
 					}
@@ -215,7 +222,7 @@ export const TransactionForm = ({
 				}
 			}
 
-			if (parsedAmount > maxLimit) {
+			if (parsedAmount.gt(maxLimit)) {
 				setValidationError(errorMsg);
 			} else {
 				setValidationError(null);
@@ -225,9 +232,10 @@ export const TransactionForm = ({
 		}
 	};
 
-	const formatValue = (value?: bigint) => {
-		if (value === undefined) return "0.00";
-		return parseFloat(formatEther(value)).toLocaleString(undefined, {
+	const formatValue = (value?: BN) => {
+		if (!value) return "0.00";
+		const formatted = formatBN(value, 18, 4);
+		return parseFloat(formatted).toLocaleString(undefined, {
 			minimumFractionDigits: 2,
 			maximumFractionDigits: 2,
 		});
@@ -235,16 +243,16 @@ export const TransactionForm = ({
 
 	const handleSetMax = () => {
 		if (activeTab === "supply") {
-			setAmount(tokenBalance ? formatEther(tokenBalance) : "0");
+			setAmount(tokenBalance ? formatBN(tokenBalance) : "0");
 		} else if (activeTab === "withdraw") {
-			setAmount(maxWithdraw ? formatEther(maxWithdraw) : "0");
+			setAmount(maxWithdraw ? formatBN(maxWithdraw) : "0");
 		} else if (activeTab === "borrow") {
-			setAmount(maxBorrow ? formatEther(maxBorrow) : "0");
+			setAmount(maxBorrow ? formatBN(maxBorrow) : "0");
 		} else if (activeTab === "repay") {
-			const debt = userPosition?.borrowed || BigInt(0);
-			const balance = tokenBalance || BigInt(0);
-			const maxRepay = debt < balance ? debt : balance;
-			setAmount(formatEther(maxRepay));
+			const debt = userPosition?.borrowed || ZERO_BN;
+			const balance = tokenBalance || ZERO_BN;
+			const maxRepay = debt.lt(balance) ? debt : balance;
+			setAmount(formatBN(maxRepay));
 			setValidationError(null); // Max amount is always valid by definition logic
 		}
 		// Clear validation error for other tabs as setting max is valid
@@ -258,8 +266,9 @@ export const TransactionForm = ({
 		if (!amount) return false;
 		if (!tokenAllowance) return true;
 		try {
-			const parsed = parseUnits(amount, 18);
-			return parsed > tokenAllowance;
+			const parsedBigInt = parseUnits(amount, 18);
+			const parsed = new BN(parsedBigInt.toString());
+			return parsed.gt(tokenAllowance);
 		} catch {
 			return false;
 		}
@@ -307,15 +316,15 @@ export const TransactionForm = ({
 	const getMaxAmount = () => {
 		switch (activeTab) {
 			case "supply":
-				return tokenBalance || BigInt(0);
+				return tokenBalance || ZERO_BN;
 			case "withdraw":
-				return maxWithdraw || BigInt(0);
+				return maxWithdraw || ZERO_BN;
 			case "borrow":
-				return maxBorrow || BigInt(0);
+				return maxBorrow || ZERO_BN;
 			case "repay": {
-				const debt = userPosition?.borrowed || BigInt(0);
-				const balance = tokenBalance || BigInt(0);
-				return debt < balance ? debt : balance;
+				const debt = userPosition?.borrowed || ZERO_BN;
+				const balance = tokenBalance || ZERO_BN;
+				return debt.lt(balance) ? debt : balance;
 			}
 		}
 	};
